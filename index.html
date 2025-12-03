@@ -72,14 +72,95 @@
             overflow: hidden; /* 隐藏溢出内容 */
             text-overflow: ellipsis; /* 溢出时显示省略号 */
         }
+        /* ------------------------------------------- */
+/* ⭐️ 幻灯片速度控制条样式 ⭐️ */
+/* ------------------------------------------- */
         #slideshow-container {
-            /* ⭐️ 核心改动 2: 让容器绝对定位，并填充 padding-top 创建的区域 ⭐️ */
+            /* 继承原有的绝对定位和填充 */
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
+
+            /* 核心改动：使用 Flexbox 实现控制条和内容并排 */
+            display: flex;
+            justify-content: flex-start; /* 控制条在左侧 */
+            align-items: flex-start;
         }
+
+        .controls-panel {
+            /* 控制面板的容器样式 */
+            width: 100px; /* 固定的宽度 */
+            height: 100%; /* 填充高度 */
+            display: flex;
+            flex-direction: column; /* 内部元素垂直排列 */
+            align-items: center;
+            background-color: rgba(0, 0, 0, 0.5); /* 半透明背景，区分内容 */
+            padding: 10px 0;
+            box-sizing: border-box;
+            z-index: 20; /* 确保在图片之上 */
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .controls-panel h3 {
+            margin: 5px 0 10px 0;
+            font-size: 1rem;
+            color: #fff;
+            font-weight: normal;
+        }
+
+        /* ⭐️ 优化后的滑块样式 ⭐️ */
+        /* ⭐️ 优化后的滑块样式 ⭐️ */
+        #slideSpeed {
+            -webkit-appearance: none;
+            /* 核心修改 1: 宽度调整为小于等于父容器的宽度 (100px) */
+            width: 80px; /* 旋转后的“高度”为 80px，留出 20px 边距 */
+            height: 20px;
+            
+            /* 核心修改 2: 移除原来的 margin，我们用定位和 transform 居中 */
+            margin: 0; /* 移除原来的 margin */
+            
+            /* 核心修改 3: 使用更精确的居中旋转 */
+            transform: rotate(270deg) translateY(0px); /* 旋转 270 度，不进行额外Y轴平移 */
+            transform-origin: 50% 50%;
+            
+            z-index: 20;
+            
+            /* 核心修改 4: 相对定位，微调位置到中心 */
+            /* 旋转后，它在父容器中看起来是垂直的。
+            width: 80px 的旋转元素，在 100px 的父容器中，居中后左右各有 10px 边距。
+            无需额外的 top/left 调整，只要保证父容器 `.controls-panel` 内部是居中对齐即可。
+            因为 `.controls-panel` 设置了 `align-items: center;`，`width: 80px` 的滑块会自动水平居中。
+            */
+        }
+
+        /* 轨道样式 */
+        #slideSpeed::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 8px;
+            cursor: pointer;
+            background: #444;
+            border-radius: 4px;
+        }
+
+        /* 滑块样式 */
+        #slideSpeed::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 18px;
+            width: 18px;
+            border-radius: 50%;
+            background: #ff0000; /* 使用您的主题色 */
+            cursor: pointer;
+            margin-top: -5px; 
+        }
+
+        #speedDisplay {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #ffcc00;
+        }
+        /* ------------------------------------------- */
         #slideshow-image {
             width: 100%;
             height: 100%;
@@ -431,6 +512,12 @@
     <div id="slideshow-wrapper">
         <h3 id="slideshow-title">✨Your waitress✨</h3>
         <div id="slideshow-container">
+            <div class="controls-panel">
+                    <h3>速度控制</h3>
+                    <input type="range" id="slideSpeed" min="1" max="20" value="5" step="1">
+                    <div id="speedDisplay">5s</div>
+                    <p style="font-size: 0.8em; color: #666;">拖拽滑块来改变速度</p>
+                </div>
             </div>
             <div id="slideshow-controls">
         <button id="prev-slide-btn">❮ Prev</button>
@@ -576,6 +663,10 @@
         const prevSlideBtn = document.getElementById('prev-slide-btn');
         const nextSlideBtn = document.getElementById('next-slide-btn');
 
+        // ⭐️ 新增：速度控制条 DOM 元素获取 ⭐️
+        const speedSlider = document.getElementById('slideSpeed');
+        const speedDisplay = document.getElementById('speedDisplay');
+
         /* ------------------------------------------- */
         /* ⭐️ 滚动图库逻辑 ⭐️ */
         /* ------------------------------------------- */
@@ -675,7 +766,13 @@
             }
 
             // 每 3 秒切换一次图片
-            slideshowInterval = setInterval(nextSlide, 1500); 
+            // 1. 获取滑块的当前值（秒）
+            const currentSpeedSeconds = parseInt(speedSlider.value, 10);
+            const intervalMs = currentSpeedSeconds * 1000;
+            
+            // 2. 使用滑块的值设置切换间隔
+            slideshowInterval = setInterval(nextSlide, intervalMs); 
+            console.log(`Slideshow started with interval: ${intervalMs}ms`);
         }
 
         /**
@@ -1075,6 +1172,25 @@
                     if (videoPlayer) videoPlayer.pause(); 
                 } else {
                     alert("Video data not loaded yet.");
+                }
+            });
+
+            // 速度控制条监听
+            speedSlider.addEventListener('input', function() {
+                const speedValue = parseInt(this.value, 10);
+                
+                // 1. 更新界面显示
+                speedDisplay.textContent = speedValue + 's';
+
+                // 2. 重新启动滚动图库定时器
+                // 只有在幻灯片正在运行时（即视频正在加载），才需要更新速度
+                if (slideshowWrapper.style.display === 'block') {
+                    // 清除旧的定时器
+                    clearInterval(slideshowInterval);
+                    
+                    // 启动新的定时器，使用新的速度值
+                    slideshowInterval = setInterval(nextSlide, speedValue * 1000);
+                    console.log(`Slideshow speed updated to ${speedValue} seconds.`);
                 }
             });
             modalVerifyBtn.addEventListener('click', handleModalVerification);
