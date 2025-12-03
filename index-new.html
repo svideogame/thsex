@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Custom Video Player with Video.js</title>
+
+    <link href="https://vjs.zencdn.net/8.6.0/video-js.css" rel="stylesheet" />
+
+    <style>
+        /* ------------------------------------------- */
+        /* 🎯 增强的主页背景样式 */
+        /* ------------------------------------------- */
+        /* 1. 全局样式 */
+        body {
+            font-family: sans-serif;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            align-items: center;
+            min-height: 100vh;
+            /* 移除原有的 #111 背景色 */
+            background-color: transparent; 
+            padding: 20px 0;
+            color: white;
+            /* 必须设置相对定位以容纳绝对定位的背景层 */
+            position: relative; 
+        }
+
+        /* 2. 创建一个全屏背景层 */
+        body::before {
+            content: "";
+            position: fixed; /* 固定位置，不随滚动条滚动 */
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1; /* 放在所有内容的后面 */
+            
+            /* 🎯 替换成您的背景图片路径 */
+            background-image: url('video/global_homepage_background.jpg'); 
+            background-size: cover;
+            background-position: center center;
+            background-repeat: no-repeat;
+            
+            /* 🎯 添加暗化和轻微模糊，增强沉浸感 */
+            filter: brightness(0.7) blur(5px);
+            transition: filter 0.5s ease;
+        }
+
+        /* ------------------------------------------- */
+        /* 播放器和画廊的布局和美化 - 保持不变或优化 */
+        /* ------------------------------------------- */
+        .player-container {
+            width: 800px;
+            max-width: 95%;
+            /* 增加 z-index 确保它位于 body::before 背景层之上 */
+            z-index: 10; 
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.7); /* 增强阴影效果 */
+            background-color: rgba(0, 0, 0, 0.8); /* 半透明黑色背景 */
+            border-radius: 10px; /* 轻微圆角 */
+            overflow: hidden; /* 确保内容不溢出 */
+        }
+
+        /* Video and Overlay Container */
+        #video-wrapper {
+            position: relative;
+            background-color: black;
+            width: 100%;
+            padding-top: 56.25%; /* 16:9 Aspect Ratio */
+            overflow: hidden;
+
+            /* ⚠️ 移除此处的封面图片和模糊，让全屏背景生效 */
+            background-image: none; 
+            background-size: initial;
+            background-repeat: initial;
+            background-position: initial;
+        }
+        /* ⚠️ 移除原有的 #video-wrapper::before 伪元素，使用 body::before 统一控制背景 */
+        #video-wrapper::before {
+            content: none; 
+        }
+
+        /* Video and Overlay Positioning - 保持不变 */
+        #my-video {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: block;
+            z-index: 2;
+        }
+
+        /* ------------------------------------------- */
+        /* Seductive Overlay - 保持不变 */
+        /* ------------------------------------------- */
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: none;
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            flex-direction: column;
+            z-index: 10;
+            cursor: pointer;
+        }
+        .overlay-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            padding-bottom: 50px;
+            z-index: 11;
+        }
+        .overlay h2 {
+            color: #ffcc00;
+            font-size: clamp(1.5rem, 4vw, 2.5rem);
+            text-shadow: 0 0 15px rgba(255, 0, 0, 1);
+            margin-bottom: 20px;
+            font-weight: 900;
+            text-align: center;
+            z-index: 11;
+            opacity:0.1;
+        }
+        #start-btn {
+            padding: 15px 40px;
+            font-size: 1.5rem;
+            font-weight: bold;
+            background-color: #ff0000;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            box-shadow: 0 0 20px rgba(255, 0, 0, 0.8);
+            transition: transform 0.2s, background-color 0.2s, opacity 0.2s;
+            text-transform: uppercase;
+            z-index: 11;
+            opacity: 0.8;
+        }
+        #start-btn:hover:not(:disabled) {
+            background-color: #cc0000;
+            transform: scale(1.05);
+            opacity: 1;
+        }
+        #start-btn:active:not(:disabled) {
+            transform: scale(1.02);
+            opacity: 0.95;
+        }
+        #start-btn:disabled {
+            background-color: #555;
+            cursor: default;
+            box-shadow: none;
+            opacity: 1;
+        }
+
+        /* ------------------------------------------- */
+        /* ✅ Video.js Download Button Custom Style - 保持不变 */
+        /* ------------------------------------------- */
+        .vjs-download-button {
+            /* 替换 video.js 默认样式 */
+            background: none !important; 
+            border: none !important;
+            
+            /* 应用您的自定义样式 */
+            font-size: 1rem !important;
+            padding: 5px 10px !important;
+            margin-left: 15px !important;
+            color: #28a745 !important;
+            border: 2px solid #28a745 !important;
+            border-radius: 4px !important;
+            background-color: #444 !important;
+            transition: all 0.2s !important;
+            
+            /* 确保文本居中对齐 */
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            cursor: pointer;
+        }
+        .vjs-download-button:hover {
+            background-color: #28a745 !important;
+            color: white !important;
+        }
+
+        /* ------------------------------------------- */
+        /* Modal for Password Verification - 保持不变 */
+        /* ------------------------------------------- */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 100;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.8);
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background-color: #222;
+            padding: 30px;
+            border: 1px solid #555;
+            width: 80%;
+            max-width: 400px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+            color: white;
+        }
+        #modal-password-input {
+            width: 90%;
+            padding: 10px;
+            margin: 10px 0 15px;
+            border: 1px solid #444;
+            border-radius: 5px;
+            background-color: #333;
+            color: white;
+            font-size: 1rem;
+        }
+        #modal-verify-btn {
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background-color 0.2s;
+        }
+        #modal-verify-btn:hover {
+            background-color: #0056b3;
+        }
+        #modal-message {
+            margin-top: 15px;
+            color: #ff0000;
+            font-weight: bold;
+        }
+
+        /* ------------------------------------------- */
+        /* Video Gallery CSS - 保持不变 */
+        /* ------------------------------------------- */
+        #video-gallery {
+            width: 800px;
+            max-width: 95%;
+            margin-top: 30px;
+            text-align: center;
+            z-index: 10; /* 确保它也在背景图之上 */
+        }
+        #thumbnail-list {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 15px;
+            padding: 10px;
+        }
+        .thumbnail-item {
+            width: 160px;
+            cursor: pointer;
+            border: 3px solid transparent;
+            border-radius: 5px;
+            overflow: hidden;
+            transition: border-color 0.2s, opacity 0.2s;
+            opacity: 0.7;
+        }
+        .thumbnail-item:hover {
+            opacity: 1;
+            border-color: #ff0000;
+        }
+        .thumbnail-item.active {
+            opacity: 1;
+            border-color: #ffcc00;
+        }
+        .thumbnail-item img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+        .thumbnail-item p {
+            font-size: 0.9rem;
+            margin: 5px 0 0;
+            color: #ccc;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="player-container">
+        <div id="video-wrapper">
+            <video id="my-video" class="video-js vjs-default-skin" preload="auto" playsinline></video>
+
+            <div id="play-overlay" class="overlay">
+                <div class="overlay-content">
+                    <h2>🔥 Exclusive Content: Click to Unlock 🔥</h2>
+
+                    <div id="loading-progress-container" style="display: none;">
+                        <div id="loading-progress-fill"></div>
+                    </div>
+                    <p id="loading-progress-text"></p>
+                    <button id="start-btn">▶ Start Playback</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="download-modal" class="modal">
+        <div class="modal-content">
+            <h3>Download Access Required</h3>
+            <p>
+                Enter your unique access key to download the video file.
+                <br>
+                <a href="https://yourdomain.com/get-access-key" target="_blank" style="color: #ffcc00; text-decoration: none; font-weight: bold;">[Click here to get a key]</a>
+            </p>
+            <input type="password" id="modal-password-input" placeholder="Enter Access Key">
+            <button id="modal-verify-btn">Submit Key</button>
+            <p id="modal-message"></p>
+        </div>
+    </div>
+
+    <div id="video-gallery">
+        <h3>More Content</h3>
+        <div id="thumbnail-list">
+        </div>
+    </div>
+
+    <script src="https://vjs.zencdn.net/8.6.0/video.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/videojs-contrib-hls/5.15.0/videojs-contrib-hls.js"></script>
+
+    <script>
+        // ----------------------------------------------------
+        // Configuration - 保持不变
+        // ----------------------------------------------------
+        const PASSBOOK_FILE_PATH = "data/passbook.txt"; 
+        const PASSBOOK_HEADER_LENGTH = 1000;
+
+        const videoList = [
+            {
+                title: "Jordan Carver - The Locker (MP4)",
+                path: 'video/Jordan Carver - The Locker.mp4', 
+                type: 'video/mp4', 
+                thumbnail: 'video/thumb_default.jpg'
+            },
+            {
+                title: "Video #2: Sneak Peak (HLS)",
+                path: 'video/video2/master.m3u8',
+                type: 'application/x-mpegURL',
+                thumbnail: 'video/thumb2.jpg'
+            },
+            {
+                title: "Video #3: Best Moments (MP4)",
+                path: 'video/best_moments.mp4', 
+                type: 'video/mp4',
+                thumbnail: 'video/thumb3.jpg'
+            }
+        ];
+
+        let currentVideoIndex = 0;
+        let player = null; 
+        let cachedPassbook = null;
+        let isDownloadReady = false; 
+
+        // DOM Element Retrieval
+        const videoWrapper = document.getElementById('video-wrapper');
+        const playOverlay = document.getElementById('play-overlay');
+        const startButton = document.getElementById('start-btn');
+        const thumbnailListDiv = document.getElementById('thumbnail-list');
+        const downloadModal = document.getElementById('download-modal');
+        const modalPasswordInput = document.getElementById('modal-password-input');
+        const modalVerifyBtn = document.getElementById('modal-verify-btn');
+        const modalMessage = document.getElementById('modal-message');
+
+        // ----------------------------------------------------
+        // 1. Video.js 集成和控制逻辑 - 保持不变
+        // ----------------------------------------------------
+
+        function handleStartPlayback() {
+            const videoData = videoList[currentVideoIndex];
+
+            // 1. 隐藏覆盖层
+            playOverlay.style.display = 'none';
+            videoWrapper.style.backgroundImage = 'none';
+            
+            // 2. 告诉 Video.js 加载标准源
+            player.src({
+                src: videoData.path, 
+                type: videoData.type 
+            });
+
+            // 3. 启用 Video.js 控件，并尝试播放
+            player.controls(true);
+            player.play().catch(e => {
+                console.warn("Autoplay prevented:", e);
+                player.controls(true); 
+            });
+
+            // 4. 设置下载状态
+            isDownloadReady = (videoData.type === 'video/mp4'); 
+
+            // 5. 显示 Video.js 默认的加载动画
+            player.loadingSpinner.show();
+        }
+
+        function loadVideoForDisplay(index) {
+            currentVideoIndex = index;
+            const videoData = videoList[index];
+            
+            // 1. 重置并显示播放覆盖层
+            document.querySelector('.overlay h2').textContent = `🔥 Exclusive Content: ${videoData.title} 🔥`;
+            startButton.textContent = `▶ Start Playback`;
+            startButton.disabled = false;
+            playOverlay.style.cursor = 'pointer';
+            playOverlay.style.display = 'flex';
+            
+            // 2. 重置 Video.js 播放器
+            if (player) {
+                player.reset();
+                player.controls(false);
+                player.loadingSpinner.hide();
+            }
+            
+            // 3. 更新缩略图活动状态
+            updateActiveThumbnail(index);
+        }
+
+        /**
+         * 将自定义下载按钮添加到 Video.js 控件栏。
+         */
+        function setupVideoJSControls() {
+            const Button = videojs.getComponent('Button');
+            
+            const DownloadButton = videojs.extend(Button, { 
+                constructor: function() { 
+                    Button.apply(this, arguments); 
+
+                    this.el().innerHTML = 'Download ⬇'; 
+                    this.addClass('vjs-download-button'); 
+                },
+                handleClick: function() {
+                    showDownloadModal();
+                }
+            });
+
+            videojs.registerComponent('DownloadButton', DownloadButton);
+            // 将按钮添加到控制栏的末尾
+            player.controlBar.addChild('DownloadButton', {}, player.controlBar.children().length); 
+        }
+
+        // ----------------------------------------------------
+        // 2. Gallery & Utility Functions - 保持不变
+        // ----------------------------------------------------
+
+        function renderVideoGallery() {
+            thumbnailListDiv.innerHTML = ''; 
+            videoList.forEach((video, index) => {
+                const item = document.createElement('div');
+                item.className = 'thumbnail-item';
+                item.setAttribute('data-index', index);
+                const img = document.createElement('img');
+                img.src = video.thumbnail;
+                img.alt = video.title;
+                const title = document.createElement('p');
+                title.textContent = video.title;
+                item.appendChild(img);
+                item.appendChild(title);
+                
+                item.addEventListener('click', () => {
+                    loadVideoForDisplay(index);
+                });
+                thumbnailListDiv.appendChild(item);
+            });
+        }
+
+        function updateActiveThumbnail(activeIndex) {
+            document.querySelectorAll('.thumbnail-item').forEach((item, index) => {
+                item.classList.remove('active');
+                if (index === activeIndex) {
+                    item.classList.add('active');
+                }
+            });
+        }
+
+        /* * --- 3. SHA-256 Utility and Passbook Loading --- - 保持不变 */
+        async function sha256(message) {
+            const msgBuffer = new TextEncoder().encode(message);
+            const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+            return hashHex;
+        }
+
+        async function loadPassbook() {
+            if (cachedPassbook) { return cachedPassbook; }
+            try {
+                const response = await fetch(PASSBOOK_FILE_PATH);
+                if (!response.ok) { throw new Error(`Failed to load passbook: HTTP ${response.status}`); }
+                const passbookText = await response.text();
+                let cleanPassbook = passbookText.trim().toLowerCase();
+                if (cleanPassbook.length > PASSBOOK_HEADER_LENGTH) {
+                    cleanPassbook = cleanPassbook.slice(PASSBOOK_HEADER_LENGTH);
+                }
+                cachedPassbook = cleanPassbook;
+                return cachedPassbook;
+            } catch (error) {
+                console.error("[ERROR] Passbook loading failed:", error);
+                modalMessage.textContent = "Verification system error.";
+                throw error;
+            }
+        }
+
+        /* * --- 4. Download & Verification Logic --- - 保持不变 */
+
+        function showDownloadModal() {
+            if (!isDownloadReady) {
+                 alert("Error: Only MP4 sources are eligible for direct download.");
+                 return;
+            }
+            modalPasswordInput.value = '';
+            modalMessage.textContent = '';
+            downloadModal.style.display = 'flex';
+        }
+
+        function triggerFrontendDownload() {
+            const videoData = videoList[currentVideoIndex];
+            
+            if (videoData.type !== 'video/mp4' || !isDownloadReady) {
+                 alert("Download failed: Content not a downloadable format.");
+                 return;
+            }
+            
+            // 使用 MP4 文件的直接路径进行下载
+            const downloadURL = videoData.path; 
+            const a = document.createElement('a');
+            a.href = downloadURL;
+            const videoTitle = videoData.title.replace(/[^a-z0-9]/gi, '_');
+            a.download = `${videoTitle}.mp4`; 
+
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+
+        async function handleModalVerification() {
+            const inputToken = modalPasswordInput.value.trim();
+            if (!inputToken) { modalMessage.textContent = "Please enter your access key."; return; }
+
+            if (!isDownloadReady) {
+                 modalMessage.textContent = "Download data not ready. Please wait.";
+                 return;
+            }
+
+            modalMessage.textContent = "Verifying...";
+            modalVerifyBtn.disabled = true;
+
+            try {
+                const inputHash = await sha256(inputToken);
+                const passbook = await loadPassbook();
+                if (!passbook) { return; }
+
+                const accessGranted = passbook.includes(inputHash);
+
+                if (accessGranted) {
+                    modalMessage.textContent = "Success! Starting download...";
+
+                    setTimeout(() => {
+                        downloadModal.style.display = 'none';
+                        modalPasswordInput.value = '';
+                        modalMessage.textContent = '';
+                        triggerFrontendDownload(); 
+                    }, 500);
+
+                } else {
+                    modalMessage.textContent = "Invalid key. Access denied.";
+                }
+            } catch (error) {
+                modalMessage.textContent = "Verification error (check console).";
+            } finally {
+                modalVerifyBtn.disabled = false;
+            }
+        }
+
+
+        // ----------------------------------------------------
+        // 5. Initialization - 保持不变
+        // ----------------------------------------------------
+
+        function init() {
+            // 1. 初始化 Video.js 实例
+            player = videojs('my-video', {
+                controls: false, 
+                autoplay: false,
+                techOrder: ['html5'], 
+                loop: false,
+                fluid: true, 
+                playbackRates: [0.5, 1, 1.5, 2] 
+            });
+            
+            // 2. 等待播放器准备好后再设置控件
+            player.ready(() => {
+                setupVideoJSControls();
+            });
+
+            // 3. 渲染画廊
+            renderVideoGallery(); 
+            
+            // 4. 注册开始按钮点击事件
+            startButton.addEventListener('click', handleStartPlayback);
+            
+            // 5. 初始化 Gallery，默认加载第一个视频的数据
+            loadVideoForDisplay(currentVideoIndex);
+
+            // 6. Modal 事件
+            downloadModal.addEventListener('click', (e) => {
+                if (e.target.classList.contains('modal')) {
+                    e.target.style.display = 'none';
+                }
+            });
+            modalVerifyBtn.addEventListener('click', handleModalVerification);
+        }
+        
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
