@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Custom Encrypted Video Player - Video Gallery</title>
+    <style>
+        /* Base Layout */
+        body { 
+            font-family: sans-serif; 
+            display: flex; 
+            flex-direction: column; 
+            justify-content: flex-start; 
+            align-items: center; 
+            min-height: 100vh; 
+            background-color: #111; 
+            padding: 20px 0;
+            color: white;
+        }
+        .player-container { 
+            width: 800px; 
+            max-width: 95%; 
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.5); 
+            background-color: #000;
+        }
+        /* Video and Overlay Container */
+        #video-wrapper {
+            position: relative; 
+            background-color: black; 
+            width: 100%;
+            padding-top: 56.25%; /* 16:9 Aspect Ratio */
+            overflow: hidden; 
+            
+            /* Cover Image Path - PLEASE UPDATE */
+            background-image: url('video/cover_image.jpg'); 
+            background-size: contain; 
+            background-repeat: no-repeat;
+            background-position: center center; 
+        }
+        #video-wrapper::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1; 
+            
+            /* Blurry/Misty Effect */
+            background-color: rgba(0, 0, 0, 0.4); 
+            filter: blur(8px); 
+            
+            margin: -20px;
+            padding: 20px;
+        }
+        
+        /* Video and Overlay Positioning */
+        #my-video {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: block;
+            z-index: 2; 
+        }
+
+        /* ------------------------------------------- */
+        /* Seductive Overlay */
+        /* ------------------------------------------- */
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: none; 
+            display: flex; 
+            justify-content: center; 
+            align-items: flex-end; 
+            flex-direction: column; 
+            z-index: 10; 
+            cursor: pointer;
+        }
+        .overlay-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%; 
+            padding-bottom: 50px; 
+            z-index: 11; 
+        }
+
+        .overlay h2 {
+            color: #ffcc00; 
+            font-size: clamp(1.5rem, 4vw, 2.5rem);
+            text-shadow: 0 0 15px rgba(255, 0, 0, 1); 
+            margin-bottom: 20px; 
+            font-weight: 900;
+            text-align: center;
+            z-index: 11;
+        }
+        #start-btn {
+            padding: 15px 40px;
+            font-size: 1.5rem;
+            font-weight: bold;
+            background-color: #ff0000; 
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            box-shadow: 0 0 20px rgba(255, 0, 0, 0.8); 
+            transition: transform 0.2s, background-color 0.2s, opacity 0.2s; 
+            text-transform: uppercase;
+            z-index: 11;
+            opacity: 0.8; 
+        }
+        #start-btn:hover:not(:disabled) {
+            background-color: #cc0000;
+            transform: scale(1.05);
+            opacity: 1;
+        }
+        #start-btn:active:not(:disabled) {
+            transform: scale(1.02);
+            opacity: 0.95; 
+        }
+        #start-btn:disabled {
+            background-color: #555;
+            cursor: default;
+            box-shadow: none;
+            opacity: 1;
+        }
+
+        /* ------------------------------------------- */
+        /* Custom Controls CSS */
+        /* ------------------------------------------- */
+        .controls {
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            background-color: #333;
+            color: white;
+            user-select: none;
+        }
+        .controls button {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+            margin: 0 5px;
+            padding: 5px;
+        }
+        /* Download Button Specific Style */
+        #download-video-btn {
+            font-size: 1rem;
+            padding: 5px 10px;
+            margin-left: 15px;
+            color: #28a745; 
+            border: 2px solid #28a745;
+            border-radius: 4px;
+            background-color: #444;
+            transition: all 0.2s;
+        }
+        #download-video-btn:hover {
+            background-color: #28a745;
+            color: white;
+        }
+        .progress-bar {
+            flex-grow: 1;
+            height: 8px;
+            background-color: #555;
+            margin: 0 15px;
+            cursor: pointer;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            width: 0%;
+            background-color: #007bff;
+            transition: width 0.1s linear;
+        }
+        .time-display {
+            font-size: 0.8rem;
+            margin-right: 10px;
+            width: 80px; 
+            text-align: right;
+        }
+
+        /* ------------------------------------------- */
+        /* Modal for Password Verification */
+        /* ------------------------------------------- */
+        .modal {
+            display: none; 
+            position: fixed; 
+            z-index: 100; 
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto; 
+            background-color: rgba(0,0,0,0.8); 
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background-color: #222;
+            padding: 30px;
+            border: 1px solid #555;
+            width: 80%;
+            max-width: 400px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+        }
+        .modal-content h3 {
+            margin-top: 0;
+            color: #fff;
+        }
+        .modal-content input[type="password"] {
+            width: calc(100% - 20px);
+            padding: 10px;
+            margin: 10px 0;
+            box-sizing: border-box;
+            border: 1px solid #444;
+            border-radius: 4px;
+            background-color: #333;
+            color: white;
+            font-size: 1rem;
+        }
+        .modal-content button {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: background-color 0.2s;
+        }
+        .modal-content button:hover:not(:disabled) {
+            background-color: #0056b3;
+        }
+        #modal-message {
+            color: #ffcc00;
+            margin-top: 10px;
+            height: 1.5em;
+            font-size: 0.9rem;
+        }
+
+        /* ------------------------------------------- */
+        /* Video Gallery CSS (Remains the same) */
+        /* ------------------------------------------- */
+        #video-gallery {
+            width: 800px; 
+            max-width: 95%;
+            margin-top: 30px;
+            text-align: center;
+        }
+        #thumbnail-list {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 15px;
+            padding: 10px;
+        }
+        .thumbnail-item {
+            width: 160px; 
+            cursor: pointer;
+            border: 3px solid transparent;
+            border-radius: 5px;
+            overflow: hidden;
+            transition: border-color 0.2s, opacity 0.2s;
+            opacity: 0.7;
+        }
+        .thumbnail-item:hover {
+            opacity: 1;
+            border-color: #ff0000;
+        }
+        .thumbnail-item.active {
+            opacity: 1;
+            border-color: #ffcc00; 
+        }
+        .thumbnail-item img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+        .thumbnail-item p {
+            font-size: 0.9rem;
+            margin: 5px 0 0;
+            color: #ccc;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="player-container">
+        <div id="video-wrapper">
+            <video id="my-video"></video>
+
+            <div id="play-overlay" class="overlay">
+                <div class="overlay-content">
+                    <h2>🔥 Exclusive Content: Click to Unlock 🔥</h2> 
+                    <button id="start-btn">▶ Start Playback</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="controls" id="video-controls" style="visibility: hidden;">
+            <button id="play-pause-btn">⏸</button>
+            
+            <div class="progress-bar">
+                <div class="progress-fill"></div>
+            </div>
+
+            <span class="time-display" id="time-display">0:00 / 0:00</span>
+            
+            <button id="download-video-btn">Download ⬇</button>
+        </div>
+    </div>
+    
+    <div id="download-modal" class="modal">
+        <div class="modal-content">
+            <h3>Download Access Required</h3>
+            <p>
+                Enter your unique access key to download the decrypted video file. 
+                <br>
+                <a href="https://yourdomain.com/get-access-key" target="_blank" style="color: #ffcc00; text-decoration: none; font-weight: bold;">[Click here to get a key]</a>
+            </p> 
+            <input type="password" id="modal-password-input" placeholder="Enter Access Key">
+            <button id="modal-verify-btn">Submit Key</button>
+            <p id="modal-message"></p>
+        </div>
+    </div>
+
+    <div id="video-gallery">
+        <h3>More Content</h3>
+        <div id="thumbnail-list">
+            </div>
+    </div>
+
+    <script>
+        // ----------------------------------------------------
+        // Configuration
+        // ----------------------------------------------------
+        const HEADER_LENGTH = 9; // Byte length of the video file header to slice
+
+        // ⭐️ CONFIGURATION FOR PASSBOOK ACCESS ⭐️
+        const PASSBOOK_FILE_PATH = "data/passbook.txt"; 
+        const PASSBOOK_HEADER_LENGTH = 1000; // Characters to skip at the start of the TXT file
+        
+        // ⭐️ MODIFIED: Video List now uses an array of paths for fragmented videos ⭐️
+        const videoList = [
+            { 
+                 title: "自动视频: Jordan Carver - The Locker",
+        path: ['video/Jordan Carver - The Locker_part1.mp4', 'video/Jordan Carver - The Locker_part2.mp4'],
+        thumbnail: 'video/thumb_default.jpg'
+            },
+            { 
+                title: "Video #2: Sneak Peak (Fragmented)", 
+                // Example of a fragmented video
+                path: ['video/obfuscated_video2_part1.mp4', 'video/obfuscated_video2_part2.mp4'], 
+                thumbnail: 'video/thumb2.jpg' 
+            },
+            { 
+                title: "Video #3: Best Moments (Fragmented)", 
+                path: ['video/obfuscated_video3_partA.mp4', 'video/obfuscated_video3_partB.mp4', 'video/obfuscated_video3_partC.mp4'], 
+                thumbnail: 'video/thumb3.jpg' 
+            }
+        ];
+        
+        let currentVideoIndex = 0;
+        let isControlsInitialized = false;
+        // ⭐️ MODIFIED: Store the decrypted Blob itself ⭐️
+        let currentVideoBlob = null; 
+        let currentVideoBlobURL = null; 
+        let cachedPassbook = null; 
+
+        // DOM Element Retrieval (unchanged)
+        const videoElement = document.getElementById('my-video');
+        const videoWrapper = document.getElementById('video-wrapper');
+        const controlsDiv = document.getElementById('video-controls');
+        const playOverlay = document.getElementById('play-overlay');
+        const startButton = document.getElementById('start-btn');
+        const playPauseBtn = document.getElementById('play-pause-btn');
+        const progressBar = document.querySelector('.progress-bar');
+        const progressFill = document.querySelector('.progress-fill');
+        const timeDisplay = document.getElementById('time-display');
+        const thumbnailListDiv = document.getElementById('thumbnail-list');
+        const downloadVideoBtn = document.getElementById('download-video-btn');
+        const downloadModal = document.getElementById('download-modal');
+        const modalPasswordInput = document.getElementById('modal-password-input');
+        const modalVerifyBtn = document.getElementById('modal-verify-btn');
+        const modalMessage = document.getElementById('modal-message');
+
+
+        /* --- 1. Core Decryption/Loading Logic (MODIFIED for fragmentation) --- */
+        async function loadAndPlay(index) {
+            currentVideoIndex = index;
+            const videoData = videoList[index];
+            const filePaths = videoData.path; // Array of paths
+
+            if (videoElement.src && currentVideoBlobURL) { 
+                URL.revokeObjectURL(currentVideoBlobURL);
+                videoElement.pause(); 
+            }
+            currentVideoBlob = null;
+            currentVideoBlobURL = null; 
+            
+            startButton.textContent = `⏳ Loading ${videoData.title}...`;
+            startButton.disabled = true;
+            playOverlay.style.cursor = 'wait';
+            playOverlay.style.display = 'flex'; 
+
+            updateActiveThumbnail(index);
+
+            try {
+                // 1. Fetch all fragments concurrently
+                const fetchPromises = filePaths.map(path => fetch(path).then(response => {
+                    if (!response.ok) throw new Error(`HTTP Error for ${path}: ${response.status}`);
+                    return response.arrayBuffer();
+                }));
+                
+                // Wait for all fragments to load
+                const fragmentBuffers = await Promise.all(fetchPromises);
+
+                // 2. Combine the ArrayBuffers
+                let totalLength = 0;
+                fragmentBuffers.forEach(buffer => totalLength += buffer.byteLength);
+
+                const fullBuffer = new Uint8Array(totalLength);
+                let offset = 0;
+                
+                for (let i = 0; i < fragmentBuffers.length; i++) {
+                    const buffer = new Uint8Array(fragmentBuffers[i]);
+                    // Only remove the header from the *FIRST* fragment
+                    if (i === 0) {
+                        if (buffer.byteLength < HEADER_LENGTH) {
+                            throw new Error(`First fragment file too small.`);
+                        }
+                        // Slice the header from the first part
+                        fullBuffer.set(buffer.subarray(HEADER_LENGTH), offset);
+                        offset += buffer.byteLength - HEADER_LENGTH;
+                    } else {
+                        // Append subsequent parts entirely
+                        fullBuffer.set(buffer, offset);
+                        offset += buffer.byteLength;
+                    }
+                }
+                
+                // 3. Create Blob and URL
+                const videoBlob = new Blob([fullBuffer.buffer.slice(0, offset)], { type: 'video/mp4' });
+                const videoURL = URL.createObjectURL(videoBlob);
+                
+                // Store the final Blob for downloading later
+                currentVideoBlob = videoBlob;
+                currentVideoBlobURL = videoURL;
+                
+                videoElement.src = videoURL;
+                videoElement.load();
+                
+                videoElement.onloadedmetadata = () => {
+                    playOverlay.style.display = 'none'; 
+                    controlsDiv.style.visibility = 'visible'; 
+                    videoWrapper.style.backgroundImage = 'none'; 
+                    videoWrapper.style.setProperty('padding-top', '56.25%', 'important'); 
+                    
+                    if (!isControlsInitialized) {
+                        initializePlayerControls();
+                        isControlsInitialized = true;
+                    } else {
+                        updatePlayerState();
+                    }
+                    
+                    togglePlayPause(true); 
+                };
+
+            } catch (error) {
+                console.error("[ERROR] Video loading failed:", error.message);
+                startButton.textContent = "❌ Loading Failed, Check Console";
+                startButton.disabled = false;
+                playOverlay.style.cursor = 'pointer';
+                controlsDiv.style.visibility = 'hidden';
+            }
+        }
+
+        /* --- 2. Playback/Gallery Functions (unchanged) --- */
+        function formatTime(seconds) {
+            const minutes = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${minutes}:${secs < 10 ? '0' : ''}${secs}`;
+        }
+        function togglePlayPause(forcePlay = false) {
+            if (videoElement.paused || videoElement.ended || forcePlay) {
+                videoElement.play().then(() => { playPauseBtn.textContent = '⏸'; }).catch(error => { playPauseBtn.textContent = '▶'; });
+            } else {
+                videoElement.pause();
+                playPauseBtn.textContent = '▶';
+            }
+        }
+        function updatePlayerState() {
+            if (videoElement.duration) {
+                const currentTime = formatTime(videoElement.currentTime);
+                const duration = formatTime(videoElement.duration);
+                timeDisplay.textContent = `${currentTime} / ${duration}`;
+                const percentage = (videoElement.currentTime / videoElement.duration) * 100;
+                progressFill.style.width = percentage + '%';
+            }
+        }
+        function handleProgressClick(e) {
+            const clickX = e.clientX - progressBar.getBoundingClientRect().left;
+            const width = progressBar.offsetWidth;
+            const percentage = clickX / width;
+            videoElement.currentTime = videoElement.duration * percentage;
+        }
+        function renderVideoGallery() {
+            videoList.forEach((video, index) => {
+                const item = document.createElement('div');
+                item.className = 'thumbnail-item';
+                item.setAttribute('data-index', index);
+                const img = document.createElement('img');
+                img.src = video.thumbnail;
+                img.alt = video.title;
+                const title = document.createElement('p');
+                title.textContent = video.title;
+                item.appendChild(img);
+                item.appendChild(title);
+                item.addEventListener('click', () => {
+                    playOverlay.style.display = 'flex'; 
+                    loadAndPlay(index);
+                });
+                thumbnailListDiv.appendChild(item);
+            });
+        }
+        function updateActiveThumbnail(activeIndex) {
+            document.querySelectorAll('.thumbnail-item').forEach((item, index) => {
+                item.classList.remove('active');
+                if (index === activeIndex) {
+                    item.classList.add('active');
+                }
+            });
+        }
+
+
+        /* --- 3. SHA-256 Utility (unchanged) --- */
+        async function sha256(message) {
+            const msgBuffer = new TextEncoder().encode(message);
+            const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+            return hashHex;
+        }
+
+        /* --- 4. Passbook Loading (unchanged) --- */
+        async function loadPassbook() {
+            if (cachedPassbook) {
+                return cachedPassbook;
+            }
+
+            try {
+                const response = await fetch(PASSBOOK_FILE_PATH);
+                if (!response.ok) {
+                    throw new Error(`Failed to load passbook: HTTP ${response.status}`);
+                }
+                const passbookText = await response.text();
+                
+                let cleanPassbook = passbookText.trim().toLowerCase();
+                if (cleanPassbook.length > PASSBOOK_HEADER_LENGTH) {
+                    cleanPassbook = cleanPassbook.slice(PASSBOOK_HEADER_LENGTH);
+                } else {
+                    console.warn(`[Passbook] File length (${cleanPassbook.length}) is less than header length (${PASSBOOK_HEADER_LENGTH}).`);
+                }
+
+                cachedPassbook = cleanPassbook; 
+                return cachedPassbook;
+
+            } catch (error) {
+                console.error("[ERROR] Passbook loading failed:", error);
+                modalMessage.textContent = "Verification system error.";
+                throw error;
+            }
+        }
+
+        /* --- 5. Download & Verification Logic (MODIFIED for Blob download) --- */
+        function triggerFrontendDownload() {
+            // ⭐️ MODIFIED: Use the stored Blob directly for download ⭐️
+            if (!currentVideoBlob) {
+                alert("Error: Decrypted video data not available.");
+                return;
+            }
+
+            // Create a temporary URL from the stored Blob
+            const downloadURL = URL.createObjectURL(currentVideoBlob);
+
+            const a = document.createElement('a');
+            a.href = downloadURL;
+            const videoTitle = videoList[currentVideoIndex].title.replace(/[^a-z0-9]/gi, '_'); 
+            a.download = `${videoTitle}_Decrypted.mp4`;
+            
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+
+            // Clean up the temporary URL immediately after download is initiated
+            URL.revokeObjectURL(downloadURL);
+        }
+
+        async function handleModalVerification() {
+            const inputToken = modalPasswordInput.value.trim();
+            if (!inputToken) {
+                modalMessage.textContent = "Please enter your access key.";
+                return;
+            }
+
+            modalMessage.textContent = "Verifying...";
+            modalVerifyBtn.disabled = true;
+
+            try {
+                const inputHash = await sha256(inputToken);
+                const passbook = await loadPassbook();
+                if (!passbook) { return; } 
+
+                const accessGranted = passbook.includes(inputHash);
+
+                if (accessGranted) {
+                    modalMessage.textContent = "Success! Starting download...";
+                    
+                    setTimeout(() => {
+                        downloadModal.style.display = 'none';
+                        modalPasswordInput.value = '';
+                        modalMessage.textContent = '';
+                        triggerFrontendDownload(); // Uses the combined Blob
+                    }, 500);
+
+                } else {
+                    modalMessage.textContent = "Invalid key. Access denied.";
+                }
+            } catch (error) {
+                modalMessage.textContent = "Verification error (check console).";
+            } finally {
+                modalVerifyBtn.disabled = false;
+            }
+        }
+
+
+        /* --- 6. Initialization (unchanged) --- */
+        function initializePlayerControls() {
+            updatePlayerState();
+            playPauseBtn.addEventListener('click', () => togglePlayPause(false));
+            progressBar.addEventListener('click', handleProgressClick);
+            videoElement.addEventListener('click', () => togglePlayPause(false)); 
+            videoElement.addEventListener('timeupdate', updatePlayerState);
+            videoElement.addEventListener('ended', () => { playPauseBtn.textContent = '▶'; });
+            
+            downloadVideoBtn.addEventListener('click', () => {
+                // Check for the combined Blob object
+                if (currentVideoBlob) { 
+                    downloadModal.style.display = 'flex';
+                    modalPasswordInput.focus();
+                } else {
+                    alert("Please start playing a video first.");
+                }
+            });
+            
+            modalVerifyBtn.addEventListener('click', handleModalVerification);
+            modalPasswordInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    handleModalVerification();
+                }
+            });
+
+            downloadModal.addEventListener('click', (e) => {
+                if (e.target === downloadModal) {
+                    downloadModal.style.display = 'none';
+                    modalPasswordInput.value = '';
+                    modalMessage.textContent = '';
+                }
+            });
+
+            videoElement.addEventListener('contextmenu', e => e.preventDefault());
+            videoElement.addEventListener('dragstart', e => e.preventDefault());
+            document.addEventListener('contextmenu', e => e.preventDefault());
+        }
+
+        /* --- 7. Page Startup Binding (unchanged) --- */
+        document.addEventListener('DOMContentLoaded', () => {
+            renderVideoGallery();
+            updateActiveThumbnail(0);
+            
+            startButton.addEventListener('click', () => {
+                if (!startButton.disabled) {
+                    loadAndPlay(0); 
+                }
+            });
+        });
+    </script>
+</body>
+</html>
