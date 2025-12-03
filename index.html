@@ -90,7 +90,7 @@
             left: 0;
             opacity: 0;
             transition: opacity 1s ease-in-out; /* 图片淡入淡出效果 */
-            filter: brightness(0.7); /* 略微变暗，突出标题 */
+            filter: brightness(0.9); /* 略微变暗，突出标题 */
         }
         #slideshow-image.active {
             opacity: 1;
@@ -121,6 +121,16 @@
         /* 初始/播放失败时，恢复静态背景 */
         #video-wrapper[data-active="false"] {
             background-image: url('video/cover_image.jpg'); 
+        }
+
+        /* ⭐️ 核心新增：当视频正在加载时，增加模糊层的暗度 ⭐️ */
+        #video-wrapper[data-loading="true"]::before {
+            background-color: rgba(0, 0, 0, 0.85); /* 明显变暗，突出进度条和文字 */
+        }
+
+        /* 播放成功后，将其设为几乎透明，只保留模糊 */
+        #video-wrapper[data-active="true"]::before {
+            background-color: rgba(0, 0, 0, 0.0);
         }
 
         /* 模糊背景层 (z-index: 1) */
@@ -213,6 +223,18 @@
             opacity: 1;
         }
         /* 进度条样式 */
+        #video-gallery h2{
+        /* 使用您原来的 H2 醒目颜色和效果 */
+        color: #ffcc00; 
+        font-size: clamp(1.5rem, 4vw, 2.5rem);
+        text-shadow: 0 0 15px rgba(255, 0, 0, 1); 
+        font-weight: 900;
+        
+        /* 增加上下边距使其不紧贴着画廊 */
+        margin: 0 0 25px 0; 
+        padding-top: 15px; 
+        text-align: center;
+    }
         #loading-progress-container {
             width: 80%;
             max-width: 400px;
@@ -368,8 +390,40 @@
         .thumbnail-item p {
             font-size: 0.9rem;
             margin: 5px 0 0;
-            color: #ccc;
+            color: #ccc;}
+        /* 新增：导航按钮容器样式 */
+        #slideshow-controls {
+            position: absolute;
+            bottom: 15px; /* 距离底部边缘 */
+            right: 15px;  /* 距离右侧边缘 */
+            z-index: 20; /* 确保在图片和标题之上 */
+            display: flex; /* 方便按钮排列 */
+            gap: 10px;
         }
+
+        /* 导航按钮通用样式 */
+        #slideshow-controls button {
+            padding: 8px 15px;
+            background-color: rgba(0, 0, 0, 0.7); /* 半透明背景 */
+            color: white;
+            font-size: 0.9rem;
+            font-weight: bold;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.2s, border-color 0.2s;
+            user-select: none; /* 防止双击选中文字 */
+        }
+
+        #slideshow-controls button:hover {
+            background-color: rgba(255, 0, 0, 0.8); /* 悬停时突出显示 */
+            border-color: #ff0000;
+        }
+        #slideshow-controls button:disabled {
+            opacity: 0.5;
+            cursor: default;
+        }
+        
     </style>
 </head>
 <body>
@@ -378,6 +432,10 @@
         <h3 id="slideshow-title">✨Your waitress✨</h3>
         <div id="slideshow-container">
             </div>
+            <div id="slideshow-controls">
+        <button id="prev-slide-btn">❮ Prev</button>
+        <button id="next-slide-btn">Next ❯</button>
+    </div>
     </div>
 
     <div class="player-container">
@@ -392,7 +450,7 @@
             
             <div id="play-overlay" class="overlay">
                 <div class="overlay-content">
-                    <h2 id="overlay-title">🔥 Exclusive Content: Click to Unlock 🔥</h2> 
+                    
                     <button id="start-btn">▶ Have fun❤️</button>
                     <div id="loading-progress-container">
                         <div id="loading-progress-bar"></div>
@@ -409,6 +467,7 @@
     
     <div id="download-modal" class="modal">
         <div class="modal-content">
+            
             <h3>Download Access Required</h3>
             <p>
                 Enter your unique access key to download the decrypted video file. 
@@ -422,6 +481,7 @@
     </div>
 
     <div id="video-gallery">
+        <h2 id="overlay-title">🔥 Exclusive Content: Click to Unlock 🔥</h2> 
         <h3>More Content</h3>
         <div id="thumbnail-list">
         </div>
@@ -470,6 +530,11 @@
             // 拼接完整的路径： 'photos/' + 文件名
             slideshowImages = filenames.map(filename => `photos/${filename}`);
             console.log(`Loaded ${slideshowImages.length} slideshow images from manifest.`);
+
+            // ⭐️ 核心改动：加载后立即随机打乱图片列表 ⭐️
+            shuffleArray(slideshowImages); 
+            
+            console.log(`Loaded and shuffled ${slideshowImages.length} slideshow images from manifest.`);
             
         } catch (error) {
             console.error("Error processing slideshow manifest:", error);
@@ -507,13 +572,63 @@
         // 滚动图库 DOM 元素
         const slideshowWrapper = document.getElementById('slideshow-wrapper');
         const slideshowContainer = document.getElementById('slideshow-container');
-
+        // ⭐️ 新增：导航按钮 DOM 元素获取 ⭐️
+        const prevSlideBtn = document.getElementById('prev-slide-btn');
+        const nextSlideBtn = document.getElementById('next-slide-btn');
 
         /* ------------------------------------------- */
         /* ⭐️ 滚动图库逻辑 ⭐️ */
         /* ------------------------------------------- */
         let currentSlideIndex = 0;
 
+        function updateSlide(newIndex) {
+                // 确保索引在有效范围内
+                newIndex = (newIndex % slideshowImages.length + slideshowImages.length) % slideshowImages.length;
+
+                const oldImg = document.getElementById('slideshow-image');
+                if (oldImg) {
+                    oldImg.classList.remove('active');
+                }
+
+                currentSlideIndex = newIndex;
+                const newImg = document.createElement('img');
+                newImg.id = 'slideshow-image';
+                newImg.src = slideshowImages[currentSlideIndex];
+                
+                // 由于 object-fit: contain，需要确保 position 属性
+                newImg.style.position = 'absolute';
+                newImg.style.top = '0';
+                newImg.style.left = '0';
+
+                slideshowContainer.appendChild(newImg); 
+
+                // 延迟添加 active 类以触发 CSS 过渡 (淡入效果)
+                setTimeout(() => newImg.classList.add('active'), 50); 
+                
+                // 移除旧的图片
+                if (oldImg) {
+                    setTimeout(() => oldImg.remove(), 1000); 
+                }
+            }
+
+            function manualChangeSlide(direction) {
+                if (slideshowImages.length === 0) return;
+
+                // 1. 清除当前自动播放定时器
+                clearInterval(slideshowInterval);
+
+                // 2. 计算新索引
+                const nextIndex = currentSlideIndex + direction;
+                updateSlide(nextIndex);
+                
+                // 3. 重启自动播放定时器
+                slideshowInterval = setInterval(nextSlide, 3000); 
+            }
+
+            function nextSlide() {
+                const nextIndex = (currentSlideIndex + 1) % slideshowImages.length;
+                updateSlide(nextIndex);
+            }
         /**
          * 启动滚动图库，在视频加载时提供动态背景。
          */
@@ -534,8 +649,7 @@
             }
             img.src = slideshowImages[currentSlideIndex];
             img.classList.add('active');
-
-
+            
             // 切换图片逻辑
             function nextSlide() {
                 const oldImg = document.getElementById('slideshow-image');
@@ -637,6 +751,10 @@
             startSlideshow();
             // 移除 data-active 属性，确保静态封面背景可见，等待加载完成
             videoWrapper.setAttribute('data-active', 'false'); 
+            // ⭐️ 核心新增：启动加载时，设置 data-loading="true" ⭐️
+            videoWrapper.setAttribute('data-loading', 'true');
+            // 确保 active 是 false
+            videoWrapper.setAttribute('data-active', 'false');
 
             try {
                 const decryptedChunks = []; 
@@ -731,6 +849,8 @@
                 progressBarContainer.style.display = 'none';
                 loadingStatus.textContent = '加载成功, 正在播放...'; 
                 
+                // ⭐️ 核心修改：加载成功后，移除 data-loading ⭐️
+                videoWrapper.removeAttribute('data-loading');
                 // ⭐️ 停止上方的滚动图库 ⭐️
                 stopSlideshow();
 
@@ -750,6 +870,8 @@
                 });
                     
             } catch (error) {
+                // ⭐️ 核心修改：加载失败后，移除 data-loading ⭐️
+                videoWrapper.removeAttribute('data-loading');
                 // 错误处理逻辑
                 console.error("[ERROR] Video loading failed:", error.message);
                 
@@ -805,6 +927,15 @@
             const hashArray = Array.from(new Uint8Array(hashBuffer));
             const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
             return hashHex;
+        }
+
+        /* --- 8. Utility: Fisher-Yates Shuffle (洗牌算法) --- */
+        function shuffleArray(array) {
+            // 随机打乱数组的顺序（在原数组上操作）
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
         }
 
         /* --- 4. Passbook Loading (加载验证哈希) --- */
@@ -931,6 +1062,10 @@
                     }
                 }
             });
+
+            // ⭐️ 核心绑定：手动导航按钮 ⭐️
+            prevSlideBtn.addEventListener('click', () => manualChangeSlide(-1));
+            nextSlideBtn.addEventListener('click', () => manualChangeSlide(1));
 
             // 绑定模态框事件
             downloadVideoBtn.addEventListener('click', () => {
