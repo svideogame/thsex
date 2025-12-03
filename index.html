@@ -130,6 +130,37 @@
             box-shadow: none;
             opacity: 1;
         }
+        
+        /* 新增：加载进度条容器样式 */
+        #loading-progress-container {
+            width: 80%;
+            max-width: 400px;
+            height: 10px;
+            background-color: rgba(255, 255, 255, 0.2);
+            border-radius: 5px;
+            margin-top: 10px;
+            overflow: hidden;
+            display: none; /* 默认隐藏 */
+        }
+
+        /* 新增：进度填充样式 */
+        #loading-progress-fill {
+            height: 100%;
+            width: 0%;
+            background-color: #00ff66; /* 绿色，表示加载中 */
+            transition: width 0.3s linear;
+        }
+
+        /* 新增：进度文本样式 */
+        #loading-progress-text {
+            color: #00ff66;
+            font-weight: bold;
+            margin-top: 10px;
+            font-size: 1rem;
+            text-shadow: 0 0 5px rgba(0, 255, 102, 0.5);
+            height: 1.2em; /* Ensure space when empty */
+        }
+
 
         /* ------------------------------------------- */
         /* Custom Controls CSS */
@@ -303,6 +334,11 @@
             <div id="play-overlay" class="overlay">
                 <div class="overlay-content">
                     <h2>🔥 Exclusive Content: Click to Unlock 🔥</h2> 
+                    
+                    <div id="loading-progress-container">
+                        <div id="loading-progress-fill"></div>
+                    </div>
+                    <p id="loading-progress-text"></p>
                     <button id="start-btn">▶ Start Playback</button>
                 </div>
             </div>
@@ -354,7 +390,7 @@
         // ⭐️ MODIFIED: Video List now uses an array of paths for fragmented videos ⭐️
         const videoList = [
             { 
-                 title: "自动视频: Jordan Carver - The Locker",
+                 title: "Jordan Carver - The Locker",
         path: ['video/Jordan Carver - The Locker_part1.mp4', 'video/Jordan Carver - The Locker_part2.mp4'],
         thumbnail: 'video/thumb_default.jpg'
             },
@@ -378,12 +414,15 @@
         let currentVideoBlobURL = null; 
         let cachedPassbook = null; 
 
-        // DOM Element Retrieval (unchanged)
+        // DOM Element Retrieval (新增进度条元素)
         const videoElement = document.getElementById('my-video');
         const videoWrapper = document.getElementById('video-wrapper');
         const controlsDiv = document.getElementById('video-controls');
         const playOverlay = document.getElementById('play-overlay');
         const startButton = document.getElementById('start-btn');
+        const loadingProgressContainer = document.getElementById('loading-progress-container');
+        const loadingProgressFill = document.getElementById('loading-progress-fill');
+        const loadingProgressText = document.getElementById('loading-progress-text');
         const playPauseBtn = document.getElementById('play-pause-btn');
         const progressBar = document.querySelector('.progress-bar');
         const progressFill = document.querySelector('.progress-fill');
@@ -396,7 +435,7 @@
         const modalMessage = document.getElementById('modal-message');
 
 
-        /* --- 1. Core Decryption/Loading Logic (MODIFIED for fragmentation) --- */
+        /* --- 1. Core Decryption/Loading Logic (MODIFIED for progress bar) --- */
         async function loadAndPlay(index) {
             currentVideoIndex = index;
             const videoData = videoList[index];
@@ -414,14 +453,31 @@
             playOverlay.style.cursor = 'wait';
             playOverlay.style.display = 'flex'; 
 
+            // ⭐️ 进度条初始化 ⭐️
+            loadingProgressContainer.style.display = 'block';
+            loadingProgressFill.style.width = '0%';
+            loadingProgressText.textContent = `0 / ${filePaths.length} fragments loaded`;
+            let completedFragments = 0;
+
             updateActiveThumbnail(index);
 
             try {
-                // 1. Fetch all fragments concurrently
-                const fetchPromises = filePaths.map(path => fetch(path).then(response => {
-                    if (!response.ok) throw new Error(`HTTP Error for ${path}: ${response.status}`);
-                    return response.arrayBuffer();
-                }));
+                // 1. Fetch all fragments concurrently, updating progress after each completion
+                const fetchPromises = filePaths.map(path => 
+                    fetch(path)
+                        .then(response => {
+                            if (!response.ok) throw new Error(`HTTP Error for ${path}: ${response.status}`);
+                            return response.arrayBuffer();
+                        })
+                        .then(buffer => {
+                            // ⭐️ 更新进度 ⭐️
+                            completedFragments++;
+                            const percentage = (completedFragments / filePaths.length) * 100;
+                            loadingProgressFill.style.width = percentage + '%';
+                            loadingProgressText.textContent = `${completedFragments} / ${filePaths.length} fragments loaded`;
+                            return buffer;
+                        })
+                );
                 
                 // Wait for all fragments to load
                 const fragmentBuffers = await Promise.all(fetchPromises);
@@ -462,6 +518,10 @@
                 videoElement.load();
                 
                 videoElement.onloadedmetadata = () => {
+                    // ⭐️ 加载完成，隐藏进度条 ⭐️
+                    loadingProgressContainer.style.display = 'none';
+                    loadingProgressText.textContent = '';
+
                     playOverlay.style.display = 'none'; 
                     controlsDiv.style.visibility = 'visible'; 
                     videoWrapper.style.backgroundImage = 'none'; 
@@ -479,10 +539,14 @@
 
             } catch (error) {
                 console.error("[ERROR] Video loading failed:", error.message);
-                startButton.textContent = "❌ Loading Failed, Check Console";
+                startButton.textContent = "❌ Loading Failed, Click to Retry";
                 startButton.disabled = false;
                 playOverlay.style.cursor = 'pointer';
                 controlsDiv.style.visibility = 'hidden';
+
+                // ⭐️ 发生错误，隐藏进度条 ⭐️
+                loadingProgressContainer.style.display = 'none';
+                loadingProgressText.textContent = 'Failed to load video.';
             }
         }
 
