@@ -3,9 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Custom Encrypted Video Player - Video Gallery</title>
+    <title>Video.js Encrypted Video Player - Simple Chunk Merge</title>
+
+    <link id="vjs-css" href="https://vjs.zencdn.net/8.6.0/video-js.css" rel="stylesheet" />
+
     <style>
-        /* Base Layout */
+        /* ------------------------------------------- */
+        /* BASE LAYOUT */
+        /* ------------------------------------------- */
         body { 
             font-family: sans-serif; 
             display: flex; 
@@ -23,7 +28,8 @@
             box-shadow: 0 0 30px rgba(0, 0, 0, 0.5); 
             background-color: #000;
         }
-        /* Video and Overlay Container */
+
+        /* Video 和 Overlay Container */
         #video-wrapper {
             position: relative; 
             background-color: black; 
@@ -45,16 +51,13 @@
             width: 100%;
             height: 100%;
             z-index: 1; 
-            
-            /* Blurry/Misty Effect */
             background-color: rgba(0, 0, 0, 0.4); 
             filter: blur(8px); 
-            
             margin: -20px;
             padding: 20px;
         }
         
-        /* Video and Overlay Positioning */
+        /* Video.js 播放器样式 */
         #my-video {
             position: absolute;
             top: 0;
@@ -66,7 +69,7 @@
         }
 
         /* ------------------------------------------- */
-        /* Seductive Overlay */
+        /* 启动覆盖层 */
         /* ------------------------------------------- */
         .overlay {
             position: absolute;
@@ -90,7 +93,6 @@
             padding-bottom: 50px; 
             z-index: 11; 
         }
-
         .overlay h2 {
             color: #ffcc00; 
             font-size: clamp(1.5rem, 4vw, 2.5rem);
@@ -130,97 +132,68 @@
             box-shadow: none;
             opacity: 1;
         }
-        
-        /* 新增：加载进度条容器样式 */
+        /* ------------------------------------------- */
+        /* 进度条样式 */
+        /* ------------------------------------------- */
         #loading-progress-container {
             width: 80%;
             max-width: 400px;
-            height: 10px;
+            height: 15px;
             background-color: rgba(255, 255, 255, 0.2);
-            border-radius: 5px;
-            margin-top: 10px;
+            border-radius: 8px;
             overflow: hidden;
+            margin-top: 20px;
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
             display: none; /* 默认隐藏 */
         }
-
-        /* 新增：进度填充样式 */
-        #loading-progress-fill {
+        #loading-progress-bar {
             height: 100%;
             width: 0%;
-            background-color: #00ff66; /* 绿色，表示加载中 */
-            transition: width 0.3s linear;
+            background-color: #00ff00; /* 绿色进度条 */
+            transition: width 0.1s linear; /* 平滑过渡 */
+            border-radius: 8px;
         }
-
-        /* 新增：进度文本样式 */
-        #loading-progress-text {
-            color: #00ff66;
-            font-weight: bold;
+        #loading-status {
+            color: #fff;
             margin-top: 10px;
             font-size: 1rem;
-            text-shadow: 0 0 5px rgba(0, 255, 102, 0.5);
-            height: 1.2em; /* Ensure space when empty */
+            text-shadow: 0 0 5px #000;
+            min-height: 1.2em;
         }
-
-
         /* ------------------------------------------- */
-        /* Custom Controls CSS */
+        /* 自定义下载按钮栏 */
         /* ------------------------------------------- */
-        .controls {
-            display: flex;
-            align-items: center;
+        .custom-controls-bar {
             padding: 10px;
-            background-color: #333;
-            color: white;
-            user-select: none;
+            background-color: #222; 
+            text-align: right;
+            border-top: 1px solid #444;
+            display: none; 
         }
-        .controls button {
-            background: none;
-            border: none;
-            color: white;
-            font-size: 1.5rem;
-            cursor: pointer;
-            margin: 0 5px;
-            padding: 5px;
-        }
-        /* Download Button Specific Style */
         #download-video-btn {
             font-size: 1rem;
-            padding: 5px 10px;
-            margin-left: 15px;
+            padding: 5px 15px;
             color: #28a745; 
             border: 2px solid #28a745;
             border-radius: 4px;
             background-color: #444;
             transition: all 0.2s;
+            cursor: pointer;
         }
         #download-video-btn:hover {
             background-color: #28a745;
             color: white;
         }
-        .progress-bar {
-            flex-grow: 1;
-            height: 8px;
-            background-color: #555;
-            margin: 0 15px;
-            cursor: pointer;
-            border-radius: 4px;
-            overflow: hidden;
-        }
-        .progress-fill {
-            height: 100%;
-            width: 0%;
-            background-color: #007bff;
-            transition: width 0.1s linear;
-        }
-        .time-display {
-            font-size: 0.8rem;
-            margin-right: 10px;
-            width: 80px; 
-            text-align: right;
+        #download-video-btn:disabled {
+            opacity: 0.5;
+            cursor: default;
+            background-color: #444;
+            color: #28a745;
         }
 
+
         /* ------------------------------------------- */
-        /* Modal for Password Verification */
+        /* 模态框 (下载密码验证) */
         /* ------------------------------------------- */
         .modal {
             display: none; 
@@ -281,7 +254,7 @@
         }
 
         /* ------------------------------------------- */
-        /* Video Gallery CSS (Remains the same) */
+        /* 视频画廊 */
         /* ------------------------------------------- */
         #video-gallery {
             width: 800px; 
@@ -329,31 +302,28 @@
 
     <div class="player-container">
         <div id="video-wrapper">
-            <video id="my-video"></video>
+            <video 
+                id="my-video" 
+                class="video-js vjs-default-skin vjs-big-play-centered" 
+                preload="auto" 
+                poster="video/cover_image.jpg" 
+                data-setup='{}'>
+            </video>
 
             <div id="play-overlay" class="overlay">
                 <div class="overlay-content">
                     <h2>🔥 Exclusive Content: Click to Unlock 🔥</h2> 
-                    
-                    <div id="loading-progress-container">
-                        <div id="loading-progress-fill"></div>
-                    </div>
-                    <p id="loading-progress-text"></p>
                     <button id="start-btn">▶ Start Playback</button>
+                    <div id="loading-progress-container">
+                        <div id="loading-progress-bar"></div>
+                    </div>
+                    <p id="loading-status"></p>
                 </div>
             </div>
         </div>
         
-        <div class="controls" id="video-controls" style="visibility: hidden;">
-            <button id="play-pause-btn">⏸</button>
-            
-            <div class="progress-bar">
-                <div class="progress-fill"></div>
-            </div>
-
-            <span class="time-display" id="time-display">0:00 / 0:00</span>
-            
-            <button id="download-video-btn">Download ⬇</button>
+        <div class="custom-controls-bar" id="custom-controls-bar">
+            <button id="download-video-btn" disabled>Download ⬇</button>
         </div>
     </div>
     
@@ -374,211 +344,249 @@
     <div id="video-gallery">
         <h3>More Content</h3>
         <div id="thumbnail-list">
-            </div>
+        </div>
     </div>
 
     <script>
         // ----------------------------------------------------
         // Configuration
         // ----------------------------------------------------
-        const HEADER_LENGTH = 9; // Byte length of the video file header to slice
-
-        // ⭐️ CONFIGURATION FOR PASSBOOK ACCESS ⭐️
+        const HEADER_LENGTH = 9; // 每个分块头部加密的字节数
         const PASSBOOK_FILE_PATH = "data/passbook.txt"; 
-        const PASSBOOK_HEADER_LENGTH = 1000; // Characters to skip at the start of the TXT file
+        const PASSBOOK_HEADER_LENGTH = 1000;
+        const VIDEOJS_CDN = "https://vjs.zencdn.net/8.6.0/video.min.js"; 
         
-        // ⭐️ MODIFIED: Video List now uses an array of paths for fragmented videos ⭐️
+        // ⭐️ 核心配置: 一个视频现在由多个路径（parts 数组）组成 ⭐️
         const videoList = [
             { 
-                 title: "Jordan Carver - The Locker",
-        path: ['video/Jordan Carver - The Locker_part1.mp4', 'video/Jordan Carver - The Locker_part2.mp4'],
-        thumbnail: 'video/thumb_default.jpg'
+                title: "Video #1: Multi-Part Episode", 
+                parts: ['video/Jordan Carver - The Locker_part1.mp4', 'video/Jordan Carver - The Locker_part2.mp4', 'video/Jordan Carver - The Locker_part3.mp4', 'video/Jordan Carver - The Locker_part4.mp4', 'video/Jordan Carver - The Locker_part5.mp4', 'video/Jordan Carver - The Locker_part6.mp4', 'video/Jordan Carver - The Locker_part7.mp4', 'video/Jordan Carver - The Locker_part8.mp4', 'video/Jordan Carver - The Locker_part9.mp4', 'video/Jordan Carver - The Locker_part10.mp4', 'video/Jordan Carver - The Locker_part11.mp4', 'video/Jordan Carver - The Locker_part12.mp4', 'video/Jordan Carver - The Locker_part13.mp4', 'video/Jordan Carver - The Locker_part14.mp4', 'video/Jordan Carver - The Locker_part15.mp4', 'video/Jordan Carver - The Locker_part16.mp4', 'video/Jordan Carver - The Locker_part17.mp4', 'video/Jordan Carver - The Locker_part18.mp4', 'video/Jordan Carver - The Locker_part19.mp4', 'video/Jordan Carver - The Locker_part20.mp4', 'video/Jordan Carver - The Locker_part21.mp4', 'video/Jordan Carver - The Locker_part22.mp4', 'video/Jordan Carver - The Locker_part23.mp4', 'video/Jordan Carver - The Locker_part24.mp4', 'video/Jordan Carver - The Locker_part25.mp4', 'video/Jordan Carver - The Locker_part26.mp4'],
+                thumbnail: 'video/thumb1.jpg' 
             },
             { 
-                title: "Video #2: Sneak Peak (Fragmented)", 
-                // Example of a fragmented video
-                path: ['video/obfuscated_video2_part1.mp4', 'video/obfuscated_video2_part2.mp4'], 
+                title: "Video #2: Sneak Peak (Single Part)", 
+                parts: ['video/obfuscated_video2.mp4'], // 仍然兼容单文件模式
                 thumbnail: 'video/thumb2.jpg' 
             },
             { 
-                title: "Video #3: Best Moments (Fragmented)", 
-                path: ['video/obfuscated_video3_partA.mp4', 'video/obfuscated_video3_partB.mp4', 'video/obfuscated_video3_partC.mp4'], 
+                title: "Video #3: Best Moments (Single Part)", 
+                parts: ['video/obfuscated_video3.mp4'], 
                 thumbnail: 'video/thumb3.jpg' 
             }
         ];
         
         let currentVideoIndex = 0;
-        let isControlsInitialized = false;
-        // ⭐️ MODIFIED: Store the decrypted Blob itself ⭐️
-        let currentVideoBlob = null; 
-        let currentVideoBlobURL = null; 
+        let currentVideoBlobURL = null; // 用于存储最终拼接好的视频 Blob URL
         let cachedPassbook = null; 
+        let videoPlayer = null; 
+        let videoJsLoaded = false; 
 
-        // DOM Element Retrieval (新增进度条元素)
+        // DOM Element Retrieval 
         const videoElement = document.getElementById('my-video');
         const videoWrapper = document.getElementById('video-wrapper');
-        const controlsDiv = document.getElementById('video-controls');
         const playOverlay = document.getElementById('play-overlay');
         const startButton = document.getElementById('start-btn');
-        const loadingProgressContainer = document.getElementById('loading-progress-container');
-        const loadingProgressFill = document.getElementById('loading-progress-fill');
-        const loadingProgressText = document.getElementById('loading-progress-text');
-        const playPauseBtn = document.getElementById('play-pause-btn');
-        const progressBar = document.querySelector('.progress-bar');
-        const progressFill = document.querySelector('.progress-fill');
-        const timeDisplay = document.getElementById('time-display');
         const thumbnailListDiv = document.getElementById('thumbnail-list');
         const downloadVideoBtn = document.getElementById('download-video-btn');
+        const customControlsBar = document.getElementById('custom-controls-bar'); 
         const downloadModal = document.getElementById('download-modal');
         const modalPasswordInput = document.getElementById('modal-password-input');
         const modalVerifyBtn = document.getElementById('modal-verify-btn');
         const modalMessage = document.getElementById('modal-message');
 
+        // 进度条 DOM 元素 
+        const progressBarContainer = document.getElementById('loading-progress-container');
+        const progressBar = document.getElementById('loading-progress-bar');
+        const loadingStatus = document.getElementById('loading-status');
 
-        /* --- 1. Core Decryption/Loading Logic (MODIFIED for progress bar) --- */
+        /* --- 0. 动态加载 Video.js 脚本 (保持不变) --- */
+        function loadVideoJsScript(callback) {
+            if (videoJsLoaded) {
+                callback();
+                return;
+            }
+            const script = document.createElement('script');
+            script.src = VIDEOJS_CDN;
+            script.onload = () => {
+                videoJsLoaded = true;
+                callback();
+            };
+            script.onerror = () => {
+                console.error("Failed to load Video.js script.");
+                alert("Error loading video player. Please check your connection.");
+            };
+            document.body.appendChild(script);
+        }
+
+        /* --- 1. 核心逻辑: 分块下载，去头，粘合播放 --- */
         async function loadAndPlay(index) {
+            if (!videoPlayer) {
+                startButton.textContent = `⏳ Loading Player...`;
+                startButton.disabled = true;
+                loadVideoJsScript(() => {
+                    initializeVideoPlayer();
+                    loadAndPlay(index); 
+                });
+                return;
+            }
+
             currentVideoIndex = index;
             const videoData = videoList[index];
-            const filePaths = videoData.path; // Array of paths
+            const partsToFetch = videoData.parts; 
 
-            if (videoElement.src && currentVideoBlobURL) { 
+            // 释放旧的 Blob URL 资源
+            if (currentVideoBlobURL) { 
                 URL.revokeObjectURL(currentVideoBlobURL);
-                videoElement.pause(); 
+                currentVideoBlobURL = null; 
+                videoPlayer.pause(); 
             }
-            currentVideoBlob = null;
-            currentVideoBlobURL = null; 
             
-            startButton.textContent = `⏳ Loading ${videoData.title}...`;
+            // UI 状态设置
+            startButton.style.display = 'none';
+            progressBarContainer.style.display = 'block';
+            progressBar.style.width = '0%';
+            loadingStatus.textContent = `准备下载 ${videoData.title} (共 ${partsToFetch.length} 部分)...`;
+
             startButton.disabled = true;
             playOverlay.style.cursor = 'wait';
             playOverlay.style.display = 'flex'; 
-
-            // ⭐️ 进度条初始化 ⭐️
-            loadingProgressContainer.style.display = 'block';
-            loadingProgressFill.style.width = '0%';
-            loadingProgressText.textContent = `0 / ${filePaths.length} fragments loaded`;
-            let completedFragments = 0;
+            downloadVideoBtn.disabled = true; 
+            customControlsBar.style.display = 'none'; 
 
             updateActiveThumbnail(index);
 
             try {
-                // 1. Fetch all fragments concurrently, updating progress after each completion
-                const fetchPromises = filePaths.map(path => 
-                    fetch(path)
-                        .then(response => {
-                            if (!response.ok) throw new Error(`HTTP Error for ${path}: ${response.status}`);
-                            return response.arrayBuffer();
-                        })
-                        .then(buffer => {
-                            // ⭐️ 更新进度 ⭐️
-                            completedFragments++;
-                            const percentage = (completedFragments / filePaths.length) * 100;
-                            loadingProgressFill.style.width = percentage + '%';
-                            loadingProgressText.textContent = `${completedFragments} / ${filePaths.length} fragments loaded`;
-                            return buffer;
-                        })
-                );
+                const decryptedChunks = []; 
+                let totalDecryptedLength = 0;
+                let totalDownloadedBytes = 0;
                 
-                // Wait for all fragments to load
-                const fragmentBuffers = await Promise.all(fetchPromises);
+                // 预取所有分块的 Content-Length，用于准确的进度条计算
+                const partPromises = partsToFetch.map(path => fetch(path, { method: 'HEAD' }));
+                const partHeaders = await Promise.all(partPromises);
+                const partLengths = partHeaders.map(h => parseInt(h.headers.get('content-length'), 10) || 0);
+                const totalRawSize = partLengths.reduce((sum, size) => sum + size, 0);
 
-                // 2. Combine the ArrayBuffers
-                let totalLength = 0;
-                fragmentBuffers.forEach(buffer => totalLength += buffer.byteLength);
-
-                const fullBuffer = new Uint8Array(totalLength);
-                let offset = 0;
-                
-                for (let i = 0; i < fragmentBuffers.length; i++) {
-                    const buffer = new Uint8Array(fragmentBuffers[i]);
-                    // Only remove the header from the *FIRST* fragment
-                    if (i === 0) {
-                        if (buffer.byteLength < HEADER_LENGTH) {
-                            throw new Error(`First fragment file too small.`);
-                        }
-                        // Slice the header from the first part
-                        fullBuffer.set(buffer.subarray(HEADER_LENGTH), offset);
-                        offset += buffer.byteLength - HEADER_LENGTH;
-                    } else {
-                        // Append subsequent parts entirely
-                        fullBuffer.set(buffer, offset);
-                        offset += buffer.byteLength;
+                // 2. 循环下载每个分块
+                for (let i = 0; i < partsToFetch.length; i++) {
+                    const partPath = partsToFetch[i];
+                    
+                    const response = await fetch(partPath);
+                    if (!response.ok || !response.body) {
+                        throw new Error(`HTTP Error for part ${i+1}: ${response.status}`);
                     }
-                }
+                    
+                    // 使用 Stream API 读取分块数据，并跟踪进度
+                    const reader = response.body.getReader();
+                    const partChunks = [];
+                    let partDownloadedBytes = 0;
+                    
+                    // 之前的分块已下载的总大小
+                    const previousDownloadedSize = partLengths.slice(0, i).reduce((sum, size) => sum + size, 0);
+
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        
+                        if (done) {
+                            break;
+                        }
+
+                        partChunks.push(value);
+                        partDownloadedBytes += value.length;
+                        totalDownloadedBytes = previousDownloadedSize + partDownloadedBytes; // 更新总进度
+
+                        // 进度条计算：(已下载的字节 / 总字节) * 100%
+                        if (totalRawSize > 0) {
+                            const progressPercent = Math.round((totalDownloadedBytes / totalRawSize) * 100);
+                            progressBar.style.width = `${progressPercent}%`;
+                        }
+                        // 优化后的代码，只显示分块进度和总进度百分比
+                    const progressPercent = Math.round((totalDownloadedBytes / totalRawSize) * 100);
+
+                    loadingStatus.textContent = 
+                        `Part ${i + 1}/${partsToFetch.length} (${progressPercent}%)`; // <-- 精简在这里
+                    }
+
+                    // 合并当前分块的所有 ArrayBuffer
+                    let partBufferLength = 0;
+                    partChunks.forEach(chunk => partBufferLength += chunk.length);
+                    const partBuffer = new Uint8Array(partBufferLength);
+                    let offset = 0;
+                    partChunks.forEach(chunk => {
+                        partBuffer.set(chunk, offset);
+                        offset += chunk.length;
+                    });
+                    
+                    // 3. 核心解密 (去头) 逻辑：对每个分块独立进行头部去除
+                    if (partBuffer.byteLength < HEADER_LENGTH) {
+                        throw new Error(`Part ${i+1} too small.`);
+                    }
+                    // 移除头部（9 字节），得到纯净的数据段
+                    const cleanPartBuffer = partBuffer.slice(HEADER_LENGTH); 
+
+                    decryptedChunks.push(cleanPartBuffer);
+                    totalDecryptedLength += cleanPartBuffer.length;
+                    
+                    //loadingStatus.textContent = `Part ${i + 1} 下载/解密完成. 总进度: ${progressBar.style.width}`;
+                } // 循环结束
+
+                // 4. 将所有解密后的分块合并成一个完整的 ArrayBuffer (粘合)
+                loadingStatus.textContent = '所有分块下载完成, 正在粘合...';
+                progressBar.style.width = '100%';
                 
-                // 3. Create Blob and URL
-                const videoBlob = new Blob([fullBuffer.buffer.slice(0, offset)], { type: 'video/mp4' });
+                const finalBuffer = new Uint8Array(totalDecryptedLength);
+                let finalOffset = 0;
+                decryptedChunks.forEach(chunk => {
+                    finalBuffer.set(chunk, finalOffset);
+                    finalOffset += chunk.length;
+                });
+
+                // 5. 创建 Blob 并播放
+                const videoBlob = new Blob([finalBuffer], { type: 'video/mp4' });
                 const videoURL = URL.createObjectURL(videoBlob);
                 
-                // Store the final Blob for downloading later
-                currentVideoBlob = videoBlob;
-                currentVideoBlobURL = videoURL;
+                currentVideoBlobURL = videoURL; // 存储 Blob URL 以供下载使用
                 
-                videoElement.src = videoURL;
-                videoElement.load();
-                
-                videoElement.onloadedmetadata = () => {
-                    // ⭐️ 加载完成，隐藏进度条 ⭐️
-                    loadingProgressContainer.style.display = 'none';
-                    loadingProgressText.textContent = '';
+                videoPlayer.controls(true); 
 
+                videoPlayer.src({
+                    src: videoURL,
+                    type: 'video/mp4' 
+                });
+                
+                // 加载完成后清理进度条
+                progressBarContainer.style.display = 'none';
+                loadingStatus.textContent = '加载成功, 正在播放...'; 
+                
+                videoPlayer.ready(() => {
                     playOverlay.style.display = 'none'; 
-                    controlsDiv.style.visibility = 'visible'; 
                     videoWrapper.style.backgroundImage = 'none'; 
                     videoWrapper.style.setProperty('padding-top', '56.25%', 'important'); 
                     
-                    if (!isControlsInitialized) {
-                        initializePlayerControls();
-                        isControlsInitialized = true;
-                    } else {
-                        updatePlayerState();
-                    }
+                    customControlsBar.style.display = 'block'; 
+                    downloadVideoBtn.disabled = false; 
                     
-                    togglePlayPause(true); 
-                };
-
+                    videoPlayer.play().catch(error => {
+                        console.log("Autoplay blocked. User intervention required.");
+                    });
+                });
+                    
             } catch (error) {
+                // 错误处理逻辑
                 console.error("[ERROR] Video loading failed:", error.message);
-                startButton.textContent = "❌ Loading Failed, Click to Retry";
+                
+                progressBarContainer.style.display = 'none';
+                loadingStatus.textContent = ''; 
+                startButton.textContent = `❌ Loading Failed (${videoData.title}), Click to Retry`;
+                startButton.style.display = 'block'; 
+                
                 startButton.disabled = false;
                 playOverlay.style.cursor = 'pointer';
-                controlsDiv.style.visibility = 'hidden';
-
-                // ⭐️ 发生错误，隐藏进度条 ⭐️
-                loadingProgressContainer.style.display = 'none';
-                loadingProgressText.textContent = 'Failed to load video.';
+                downloadVideoBtn.disabled = true;
+                customControlsBar.style.display = 'none';
             }
         }
 
-        /* --- 2. Playback/Gallery Functions (unchanged) --- */
-        function formatTime(seconds) {
-            const minutes = Math.floor(seconds / 60);
-            const secs = Math.floor(seconds % 60);
-            return `${minutes}:${secs < 10 ? '0' : ''}${secs}`;
-        }
-        function togglePlayPause(forcePlay = false) {
-            if (videoElement.paused || videoElement.ended || forcePlay) {
-                videoElement.play().then(() => { playPauseBtn.textContent = '⏸'; }).catch(error => { playPauseBtn.textContent = '▶'; });
-            } else {
-                videoElement.pause();
-                playPauseBtn.textContent = '▶';
-            }
-        }
-        function updatePlayerState() {
-            if (videoElement.duration) {
-                const currentTime = formatTime(videoElement.currentTime);
-                const duration = formatTime(videoElement.duration);
-                timeDisplay.textContent = `${currentTime} / ${duration}`;
-                const percentage = (videoElement.currentTime / videoElement.duration) * 100;
-                progressFill.style.width = percentage + '%';
-            }
-        }
-        function handleProgressClick(e) {
-            const clickX = e.clientX - progressBar.getBoundingClientRect().left;
-            const width = progressBar.offsetWidth;
-            const percentage = clickX / width;
-            videoElement.currentTime = videoElement.duration * percentage;
-        }
+        /* --- 2. Gallery Functions (保持不变) --- */
         function renderVideoGallery() {
             videoList.forEach((video, index) => {
                 const item = document.createElement('div');
@@ -608,7 +616,7 @@
         }
 
 
-        /* --- 3. SHA-256 Utility (unchanged) --- */
+        /* --- 3. SHA-256 Utility (保持不变) --- */
         async function sha256(message) {
             const msgBuffer = new TextEncoder().encode(message);
             const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
@@ -617,12 +625,11 @@
             return hashHex;
         }
 
-        /* --- 4. Passbook Loading (unchanged) --- */
+        /* --- 4. Passbook Loading (保持不变) --- */
         async function loadPassbook() {
             if (cachedPassbook) {
                 return cachedPassbook;
             }
-
             try {
                 const response = await fetch(PASSBOOK_FILE_PATH);
                 if (!response.ok) {
@@ -633,13 +640,9 @@
                 let cleanPassbook = passbookText.trim().toLowerCase();
                 if (cleanPassbook.length > PASSBOOK_HEADER_LENGTH) {
                     cleanPassbook = cleanPassbook.slice(PASSBOOK_HEADER_LENGTH);
-                } else {
-                    console.warn(`[Passbook] File length (${cleanPassbook.length}) is less than header length (${PASSBOOK_HEADER_LENGTH}).`);
-                }
-
+                } 
                 cachedPassbook = cleanPassbook; 
                 return cachedPassbook;
-
             } catch (error) {
                 console.error("[ERROR] Passbook loading failed:", error);
                 modalMessage.textContent = "Verification system error.";
@@ -647,28 +650,21 @@
             }
         }
 
-        /* --- 5. Download & Verification Logic (MODIFIED for Blob download) --- */
+        /* --- 5. Download & Verification Logic (下载功能实现) --- */
         function triggerFrontendDownload() {
-            // ⭐️ MODIFIED: Use the stored Blob directly for download ⭐️
-            if (!currentVideoBlob) {
-                alert("Error: Decrypted video data not available.");
+            if (!currentVideoBlobURL) {
+                alert("Error: Video file data not available.");
                 return;
             }
 
-            // Create a temporary URL from the stored Blob
-            const downloadURL = URL.createObjectURL(currentVideoBlob);
-
             const a = document.createElement('a');
-            a.href = downloadURL;
+            a.href = currentVideoBlobURL;
             const videoTitle = videoList[currentVideoIndex].title.replace(/[^a-z0-9]/gi, '_'); 
             a.download = `${videoTitle}_Decrypted.mp4`;
             
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
-
-            // Clean up the temporary URL immediately after download is initiated
-            URL.revokeObjectURL(downloadURL);
         }
 
         async function handleModalVerification() {
@@ -695,7 +691,8 @@
                         downloadModal.style.display = 'none';
                         modalPasswordInput.value = '';
                         modalMessage.textContent = '';
-                        triggerFrontendDownload(); // Uses the combined Blob
+                        // 成功验证后，调用下载函数
+                        triggerFrontendDownload(); 
                     }, 500);
 
                 } else {
@@ -709,32 +706,34 @@
         }
 
 
-        /* --- 6. Initialization (unchanged) --- */
-        function initializePlayerControls() {
-            updatePlayerState();
-            playPauseBtn.addEventListener('click', () => togglePlayPause(false));
-            progressBar.addEventListener('click', handleProgressClick);
-            videoElement.addEventListener('click', () => togglePlayPause(false)); 
-            videoElement.addEventListener('timeupdate', updatePlayerState);
-            videoElement.addEventListener('ended', () => { playPauseBtn.textContent = '▶'; });
+        /* --- 6. Initialization (保持不变) --- */
+        function initializeVideoPlayer() {
+            // 初始化 Video.js 播放器
+            videoPlayer = videojs('my-video', { controls: false });
+
+            // 禁用右键和拖拽，防止简单下载
+            videoPlayer.on('contextmenu', e => e.preventDefault());
+            videoPlayer.el().addEventListener('dragstart', e => e.preventDefault());
             
+            // 绑定下载按钮事件：弹出密码框
             downloadVideoBtn.addEventListener('click', () => {
-                // Check for the combined Blob object
-                if (currentVideoBlob) { 
+                if (currentVideoBlobURL) {
                     downloadModal.style.display = 'flex';
                     modalPasswordInput.focus();
+                    videoPlayer.pause(); 
                 } else {
-                    alert("Please start playing a video first.");
+                    alert("Video data not loaded yet.");
                 }
             });
             
+            // 绑定模态框验证事件
             modalVerifyBtn.addEventListener('click', handleModalVerification);
             modalPasswordInput.addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') {
                     handleModalVerification();
                 }
             });
-
+            // 绑定模态框外部点击关闭事件
             downloadModal.addEventListener('click', (e) => {
                 if (e.target === downloadModal) {
                     downloadModal.style.display = 'none';
@@ -742,13 +741,10 @@
                     modalMessage.textContent = '';
                 }
             });
-
-            videoElement.addEventListener('contextmenu', e => e.preventDefault());
-            videoElement.addEventListener('dragstart', e => e.preventDefault());
-            document.addEventListener('contextmenu', e => e.preventDefault());
         }
 
-        /* --- 7. Page Startup Binding (unchanged) --- */
+
+        /* --- 7. Page Startup Binding (保持不变) --- */
         document.addEventListener('DOMContentLoaded', () => {
             renderVideoGallery();
             updateActiveThumbnail(0);
@@ -760,5 +756,6 @@
             });
         });
     </script>
-</body>
+    
+    </body>
 </html>
