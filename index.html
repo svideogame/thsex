@@ -509,6 +509,22 @@
             opacity: 0.5;
             cursor: default;
         }
+        @media (max-width: 768px) {
+    /* 1. 隐藏标题：<h3 id="slideshow-title">...</h3> */
+    #slideshow-title {
+        display: none !important;
+    }
+
+    /* 2. 隐藏导航按钮容器：<div id="slideshow-controls">...</div> */
+    #slideshow-controls {
+        display: none !important;
+    }
+    
+    /* 3. 新增：隐藏速度控制面板：<div class="controls-panel">...</div> */
+    .controls-panel {
+        display: none !important;
+    }
+}
         
     </style>
 </head>
@@ -574,7 +590,7 @@
 
     <div id="video-gallery">
         <h2 id="overlay-title">🔥 Jordan Carver Videos: Click to Unlock 🔥</h2> 
-        <h3>More Content</h3>
+        <h3>More Content(click to play)</h3>
         <div id="thumbnail-list">
         </div>
     </div>
@@ -677,108 +693,128 @@
         /* ------------------------------------------- */
         let currentSlideIndex = 0;
 
-        function updateSlide(newIndex) {
-                // 确保索引在有效范围内
-                newIndex = (newIndex % slideshowImages.length + slideshowImages.length) % slideshowImages.length;
+        // 替换您原有的 updateSlide 函数
+function updateSlide(newIndex) {
+    if (slideshowImages.length === 0) return Promise.resolve();
 
-                const oldImg = document.getElementById('slideshow-image');
-                if (oldImg) {
-                    oldImg.classList.remove('active');
-                }
+    // 确保索引在有效范围内
+    newIndex = (newIndex % slideshowImages.length + slideshowImages.length) % slideshowImages.length;
+    currentSlideIndex = newIndex;
 
-                currentSlideIndex = newIndex;
-                const newImg = document.createElement('img');
-                newImg.id = 'slideshow-image';
-                newImg.src = slideshowImages[currentSlideIndex];
-                
-                // 由于 object-fit: contain，需要确保 position 属性
-                newImg.style.position = 'absolute';
-                newImg.style.top = '0';
-                newImg.style.left = '0';
-
-                slideshowContainer.appendChild(newImg); 
-
-                // 延迟添加 active 类以触发 CSS 过渡 (淡入效果)
-                setTimeout(() => newImg.classList.add('active'), 50); 
-                
-                // 移除旧的图片
-                if (oldImg) {
-                    setTimeout(() => oldImg.remove(), 1000); 
-                }
-            }
-
-            function manualChangeSlide(direction) {
-                if (slideshowImages.length === 0) return;
-
-                // 1. 清除当前自动播放定时器
-                clearInterval(slideshowInterval);
-
-                // 2. 计算新索引
-                const nextIndex = currentSlideIndex + direction;
-                updateSlide(nextIndex);
-                
-                // 3. 重启自动播放定时器
-                slideshowInterval = setInterval(nextSlide, 3000); 
-            }
-
-            function nextSlide() {
-                const nextIndex = (currentSlideIndex + 1) % slideshowImages.length;
-                updateSlide(nextIndex);
-            }
-        /**
-         * 启动滚动图库，在视频加载时提供动态背景。
-         */
-        function startSlideshow() {
-            if (slideshowImages.length === 0) return;
+    const oldImg = document.getElementById('slideshow-image');
+    
+    // 返回一个 Promise，等待图片加载完成
+    return new Promise(resolve => {
+        const newImg = document.createElement('img');
+        newImg.id = 'slideshow-image';
+        
+        // ⭐️ 核心修改 A: 监听图片加载事件 ⭐️
+        newImg.onload = () => {
+            // 图片加载成功后，执行以下操作：
             
-            // 确保滚动图库显示
-            slideshowWrapper.style.display = 'block'; 
+            // 1. 立即将新图片添加到容器
+            slideshowContainer.appendChild(newImg); 
             
-            clearInterval(slideshowInterval);
-
-            // 确保容器中有图片元素
-            let img = document.getElementById('slideshow-image');
-            if (!img) {
-                img = document.createElement('img');
-                img.id = 'slideshow-image';
-                slideshowContainer.appendChild(img);
+            // 2. 延迟添加 active 类以触发 CSS 过渡 (淡入效果)
+            setTimeout(() => newImg.classList.add('active'), 50); 
+            
+            // 3. 移除旧的图片
+            if (oldImg) {
+                // 确保旧图片在淡出过渡完成后再移除
+                setTimeout(() => oldImg.remove(), 1000); 
             }
-            img.src = slideshowImages[currentSlideIndex];
-            img.classList.add('active');
             
-            // 切换图片逻辑
-            function nextSlide() {
-                const oldImg = document.getElementById('slideshow-image');
-                if (oldImg) {
-                    oldImg.classList.remove('active');
-                }
-
-                currentSlideIndex = (currentSlideIndex + 1) % slideshowImages.length;
-                const newImg = document.createElement('img');
-                newImg.id = 'slideshow-image';
-                newImg.src = slideshowImages[currentSlideIndex];
-                
-                // 立即添加，但设为透明
-                slideshowContainer.appendChild(newImg); 
-
-                // 延迟添加 active 类以触发 CSS 过渡 (淡入效果)
-                setTimeout(() => newImg.classList.add('active'), 50); 
-                
-                // 移除旧的图片
-                if (oldImg) {
-                    setTimeout(() => oldImg.remove(), 1000); 
-                }
-            }
-
-            // 每 3 秒切换一次图片
-            // 1. 获取滑块的当前值（秒）
-            const currentSpeedSeconds = parseInt(speedSlider.value, 10);
-            const intervalMs = currentSpeedSeconds * 1000;
-            
-            // 2. 使用滑块的值设置切换间隔
-            slideshowInterval = setInterval(nextSlide, intervalMs); 
-            console.log(`Slideshow started with interval: ${intervalMs}ms`);
+            // 4. 图片加载和过渡完成后，解决 Promise
+            // 延迟 1000ms 是为了等待旧图片移除（淡出动画完成）
+            setTimeout(resolve, 1000); 
+        };
+        
+        newImg.onerror = () => {
+             // 如果加载失败，仍然继续流程，防止卡住
+             console.error("Slideshow image failed to load:", slideshowImages[currentSlideIndex]);
+             resolve(); 
         }
+
+        // 移除旧图片的 active 类 (触发淡出动画)
+        if (oldImg) {
+            oldImg.classList.remove('active');
+        }
+
+        // 立即设置图片源，开始加载
+        newImg.src = slideshowImages[currentSlideIndex];
+        
+        // 由于 object-fit: contain，需要确保 position 属性
+        newImg.style.position = 'absolute';
+        newImg.style.top = '0';
+        newImg.style.left = '0';
+
+        // 初始时新图片是透明的
+        newImg.style.opacity = '1';
+    });
+}
+
+            // 替换您原有的 manualChangeSlide 函数
+
+function manualChangeSlide(direction) {
+    if (slideshowImages.length === 0) return;
+
+    // 1. 清除当前自动播放定时器
+    clearInterval(slideshowInterval);
+
+    // 2. 计算新索引
+    const nextIndex = currentSlideIndex + direction;
+    
+    // 3. 更新幻灯片并等待加载完成
+    updateSlide(nextIndex).then(() => {
+        // 4. 图片加载完成后，重新启动自动播放定时器
+        const currentSpeedSeconds = parseInt(speedSlider.value, 10);
+        const intervalMs = currentSpeedSeconds * 1000;
+        slideshowInterval = setInterval(nextSlide, intervalMs); 
+    });
+}
+
+            // 替换您原有的 nextSlide 和 startSlideshow 函数
+
+/**
+ * 切换到下一张幻灯片，并在加载完成后设置新的计时器。
+ */
+function nextSlide() {
+    // 1. 清除当前计时器，防止重复调用
+    clearInterval(slideshowInterval);
+
+    const nextIndex = (currentSlideIndex + 1) % slideshowImages.length;
+
+    // 2. 调用 updateSlide 并等待图片加载完成
+    updateSlide(nextIndex).then(() => {
+        // 3. 图片加载并显示完成后，设置新的切换计时器
+        const currentSpeedSeconds = parseInt(speedSlider.value, 10);
+        const intervalMs = currentSpeedSeconds * 1000;
+        slideshowInterval = setInterval(nextSlide, intervalMs); 
+    });
+}
+
+/**
+ * 启动滚动图库。
+ */
+function startSlideshow() {
+    if (slideshowImages.length === 0) return;
+    
+    // 确保滚动图库显示
+    slideshowWrapper.style.display = 'block'; 
+    
+    // 首次启动时，清除计时器，然后加载第一张图片并启动循环
+    clearInterval(slideshowInterval);
+
+    // 启动时加载第一张图片，并在加载完成后启动计时循环
+    updateSlide(currentSlideIndex).then(() => {
+        const currentSpeedSeconds = parseInt(speedSlider.value, 10);
+        const intervalMs = currentSpeedSeconds * 1000;
+        slideshowInterval = setInterval(nextSlide, intervalMs); 
+        console.log(`Slideshow started with interval: ${intervalMs}ms`);
+    });
+}
+
+        
 
         /**
          * 停止滚动图库，在视频开始播放或加载完成时调用。
